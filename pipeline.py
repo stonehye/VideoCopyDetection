@@ -96,7 +96,7 @@ def extract_frame_fingerprint(model, loader):
 
 
 if __name__ == '__main__':
-    video = '/nfs_shared/MLVD/VCDB/videos/00274a923e13506819bd273c694d10cfa07ce1ec.flv'
+    video = '/nfs_shared/MLVD/VCDB/videos/e901a631b00f4ad0c9d161d686fac1339e1e3535.flv'
     decode_rate = 2
     decode_size = 256
     group_count = 4
@@ -116,6 +116,8 @@ if __name__ == '__main__':
     # shot boundary detect
     shot_list = SBD_ffmpeg(frames, OPTION='local')
     print(shot_list) # last frame num = len(frames) - 1
+    if shot_list == []:
+        shot_list = [0]
 
     # Sampling (group_count) frames between shot intervals.
     new_frames = []
@@ -175,3 +177,5 @@ if __name__ == '__main__':
     print(frame_fingerprints.shape)
     segment_fingerprints = aggr_model(frame_fingerprints)
     print(segment_fingerprints.shape)
+
+    torch.save(segment_fingerprints, 'test.pt')
