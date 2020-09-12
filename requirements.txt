@@ -3,3 +3,4 @@ pymediainfo==4.2.1
 faiss-gpu==1.6.3
 opencv-python==4.4.0.42
 opencv-contrib-python==4.4.0.42
+moviepy==1.0.3
