@@ -102,15 +102,12 @@ def extract_frame_fingerprint(model, loader):
 def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model,aggr_model,group_count):
     # parse video metadata
     meta = parse_metadata(video)
-    print(meta)
 
     # decode all frames
     frames = decode_frames(video, meta, decode_rate, decode_size)
-    print(len(frames))
 
     # shot boundary detect
-    shot_list = SBD_ffmpeg(frames, OPTION='local')
-    print(shot_list)  # last frame num = len(frames) - 1
+    shot_list = SBD_ffmpeg(frames, OPTION='local') # last frame num = len(frames) - 1
     if shot_list == []:
         shot_list = [0]
 
@@ -153,20 +150,16 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
     # extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(new_frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
     frame_fingerprints = extract_frame_fingerprint(cnn_model, cnn_loader)
-    print(frame_fingerprints.shape)
 
     # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
     k = group_count - frame_fingerprints.shape[0] % group_count
     if k != group_count:
         frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1))])
     frame_fingerprints = frame_fingerprints.reshape(-1, group_count, frame_fingerprints.shape[-1])
-    print(frame_fingerprints.shape)
 
     # extract segment_fingerprint
     frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
-    print(frame_fingerprints.shape)
     segment_fingerprints = aggr_model(frame_fingerprints)
-    print(segment_fingerprints.shape)
 
     return segment_fingerprints
 
@@ -193,7 +186,7 @@ def load_segment_fingerprint(base_path):
 
     paths = [os.path.join(base_path, p) for p in os.listdir(base_path)]
     pool = Pool()
-    bar = tqdm.tqdm(range(len(paths)), mininterval=1, ncols=150)
+    bar = tqdm(range(len(paths)), mininterval=1, ncols=150)
     features = [pool.apply_async(load, args=[p], callback=lambda *a: bar.update()) for p in paths]
     pool.close()
     pool.join()
