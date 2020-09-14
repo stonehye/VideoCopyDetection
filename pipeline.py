@@ -195,12 +195,12 @@ def load_segment_fingerprint(base_path):
     features = [f.get() for f in features]
     length = [f.shape[0] for f in features]
     start = np.cumsum([0] + length)
-    index = np.vstack([start[:-1], start[1:]]).reshape(-1, 2)
+    index = np.transpose(np.vstack([start[:-1], start[1:]]))
     return np.concatenate(features), np.array(length), index, paths
 
 
 if __name__ == '__main__':
-    video = '/nfs_shared/MLVD/VCDB/videos/00274a923e13506819bd273c694d10cfa07ce1ec.flv'
+    video = '/nfs_shared/MLVD/VCDB/videos/8084216caff6082b4e71ae4bbfe556f28a68485f.flv'
     decode_rate = 2
     decode_size = 256
     group_count = 4
