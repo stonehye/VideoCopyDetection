@@ -3,6 +3,7 @@ from torchvision import transforms as trn
 import glob
 import os
 import pickle
+import sys
 
 
 dst = '/nfs_shared/hkseok/'
@@ -25,6 +26,7 @@ pth_dir = os.path.join(dst, basename) # pth file path
 if not os.path.isdir(pth_dir):
     os.makedirs(pth_dir)
 
+
 """ video segment feature """
 empty_shotlist_count = 0 # Number of videos without shot boundary detection
 video_list = glob.glob('/nfs_shared/hkseok/VCDB/videos/core/*') # reference videos path
@@ -35,13 +37,10 @@ for video in video_list:
     torch.save(segment_fingerprint, dst_path)
 print("Num of videos without boundary detection: {}".format(empty_shotlist_count))
 
+
 """ feature DB """
 db_feature, db_length, db_index, db_paths = load_segment_fingerprint(pth_dir)
-with open(os.path.join(dst, basename + '_feature.pkl'), "wb") as fw:
-    pickle.dump(db_feature, fw)
-with open(os.path.join(dst, basename + '_length.pkl'), "wb") as fw:
-    pickle.dump(db_length, fw)
-with open(os.path.join(dst, basename + '_index.pkl'), "wb") as fw:
-    pickle.dump(db_index, fw)
-with open(os.path.join(dst, basename + '_paths.pkl'), "wb") as fw:
-    pickle.dump(db_paths, fw)
+np.save(os.path.join(dst, basename + '_feature.npy'), db_feature)
+np.save(os.path.join(dst, basename + '_length.npy'), db_length)
+np.save(os.path.join(dst, basename + '_index.npy'), db_index)
+np.save(os.path.join(dst, basename + '_paths.npy'), db_paths)
