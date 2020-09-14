@@ -61,6 +61,7 @@ class TN(object):
                     candidate.append((v_idx, q, r, score, count))
 
         candidate = sorted(candidate, key=lambda x: x[-2] / x[-1])
+        print(candidate)
         candidate_video = set()
         nms_candidate = []
 
@@ -117,20 +118,20 @@ class TN(object):
 
 if __name__ == '__main__':
     import faiss
-    group_count = 4
-    decode_rate = 2
 
     # load all features
-    db_features = np.arange(1, decode_rate).reshape(-1, 1) / decode_rate
-    db_features = np.repeat(db_features, decode_rate, axis=1).astype(np.float32)
+    db_features = np.arange(1, 10).reshape(-1, 1) / 10
+    db_features = np.repeat(db_features, 10, axis=1).astype(np.float32)
     print(db_features)
 
     # table => {db_features_idx : (video id, frame id) ...}
-    table = {n: (0, n) if n < group_count else (1, n - group_count) for n, v in enumerate(db_features)}
+    table = {n: (0, n) if n < 5 else (1, n - 5) for n, v in enumerate(db_features)}
     mapping = np.vectorize(lambda x, table: table[x])
 
+    print(table)
+
     # extract query video features
-    query_video_features = db_features[:group_count, :]
+    query_video_features = db_features[:5, :]
     print(query_video_features)
 
     # search top k features per each query frames
