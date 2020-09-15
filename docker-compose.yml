@@ -10,6 +10,11 @@ services:
     restart: always
     volumes:
       - type: volume
+        source: nfs_shared_
+        target: /nfs_shared_
+        volume:
+          nocopy: true
+      - type: volume
         source: nfs_shared
         target: /nfs_shared
         volume:
@@ -23,10 +28,14 @@ services:
     stdin_open: true
     tty: true
 
-
 volumes:
   nfs_shared:
     driver_opts:
       type: "nfs"
       o: "addr=mldisk2.sogang.ac.kr,nolock,soft,rw"
       device: ":/volume2/nfs_shared"
+  nfs_shared_:
+    driver_opts:
+      type: "nfs"
+      o: "addr=mldisk2.sogang.ac.kr,nolock,soft,rw"
+      device: ":/volume3/nfs_shared_
