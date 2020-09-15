@@ -104,7 +104,7 @@ def extract_frame_fingerprint(model, loader):
     return frame_fingerprints
 
 
-def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model,aggr_model,group_count):
+def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model,aggr_model,group_count, SBD_algorithm):
     # parse video metadata
     meta = parse_metadata(video)
 
@@ -115,46 +115,35 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
     sampling_rate = 2
     skip_frame = int(round(meta['frame_rate']//sampling_rate))
     sampled_frames = frames[::skip_frame]
-    shot_list = SBD_ffmpeg(sampled_frames, OPTION='minmax') # last frame num = len(frames) - 1
+    shot_list = SBD_ffmpeg(sampled_frames, OPTION=SBD_algorithm)
     if shot_list == []: shot_list = [0]
     shot_num = [x * skip_frame for x in shot_list]
     shot_num = sorted(list(set(shot_num)))
 
     # Sampling (group_count) frames between shot intervals.
     new_frames = []
-    for i in range(len(shot_num) - 1):
-        temp = frames[i:i + 1]
-        count = len(temp)
-        divide_interval = round((count - 2) / (group_count - 1))
-        if divide_interval < 1:
-            new_frames += temp
-            remainder = group_count - len(temp)
-            new_frames += [temp[-1]] * remainder
+    for i in range(len(shot_num)):
+        if i == len(shot_num)-1:
+            interval = frames[shot_num[-1]:len(frames)]
         else:
-            new_frames.append(temp[0])
+            interval = frames[shot_num[i]:shot_num[i + 1]]
+
+        count = len(interval)
+        divide_interval = (count - 2) / (group_count - 1)
+        if divide_interval < 1:
+            new_frames += interval
+            remainder = group_count - len(interval)
+            new_frames += [interval[-1]] * remainder
+        else:
+            divide_interval = round(divide_interval)
+            new_frames.append(interval[0])
             temp_cnt = group_count - 1
-            for idx, tp in enumerate(temp[1:]):
+            for idx, tp in enumerate(interval[1:]):
                 if temp_cnt == 0:
                     break
-                if len(temp[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
+                if len(interval[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
                     new_frames.append(tp)
                     temp_cnt -= 1
-    temp = frames[shot_num[-1]:len(frames)]
-    count = len(temp)
-    divide_interval = round((count - 2) / (group_count - 1))
-    if divide_interval < 1:
-        new_frames += temp
-        remainder = group_count - len(temp)
-        new_frames += [temp[-1]] * remainder
-    else:
-        new_frames.append(temp[0])
-        temp_cnt = group_count - 1
-        for idx, tp in enumerate(temp[1:]):
-            if temp_cnt == 0:
-                break
-            if len(temp[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
-                new_frames.append(tp)
-                temp_cnt -= 1
 
     # extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(new_frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
@@ -169,6 +158,8 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
     # extract segment_fingerprint
     frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
     segment_fingerprints = aggr_model(frame_fingerprints)
+
+    del frames, sampled_frames, shot_list, shot_num, new_frames, frame_fingerprints
 
     return segment_fingerprints
 
@@ -210,9 +201,9 @@ def load_segment_fingerprint(base_path):
 
 if __name__ == '__main__':
     video = '/nfs_shared/MLVD/VCDB/videos/8084216caff6082b4e71ae4bbfe556f28a68485f.flv'
-    decode_rate = 2
+    decode_rate = 2 # not used
     decode_size = 256
-    group_count = 32
+    group_count = 4
     cnn_model = MobileNet_AVG().cuda()
     cnn_model = nn.DataParallel(cnn_model)
     aggr_model = Segment_Maxpooling()
@@ -222,4 +213,4 @@ if __name__ == '__main__':
         trn.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    segment_fingerprint = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count)
+    segment_fingerprint = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
