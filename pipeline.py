@@ -13,6 +13,7 @@ from multiprocessing import Pool
 import os
 
 from module.shotdetect.main import SBD_ffmpeg
+from moviepy.editor import VideoFileClip
 
 
 class ListDataset(Dataset):
@@ -50,7 +51,11 @@ def parse_metadata(path):
             # meta['format'] = track.format
             # meta['duration'] = float(track.duration)
             # meta['frame_count'] = int(track.frame_count)
-            # meta['frame_rate'] = float(track.frame_rate)
+            try:
+                meta['frame_rate'] = float(track.frame_rate)
+            except:
+                myvideo = VideoFileClip(path)
+                meta['frame_rate'] = myvideo.fps
         elif track.track_type == 'Video':
             meta['width'] = int(track.width)
             meta['height'] = int(track.height)
@@ -67,7 +72,7 @@ def decode_frames(video, meta, decode_rate, size):
                '-vsync', '2',
                '-i', video,
                '-pix_fmt', 'bgr24',  # color space
-               '-r', str(decode_rate),
+               # '-r', str(decode_rate),
                '-q:v', '0',
                '-vcodec', 'rawvideo',  # origin video
                '-f', 'image2pipe',  # output format : image to pipe
@@ -107,13 +112,17 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
     frames = decode_frames(video, meta, decode_rate, decode_size)
 
     # shot boundary detect
-    shot_list = SBD_ffmpeg(frames, OPTION='local') # last frame num = len(frames) - 1
-    if shot_list == []:
-        shot_list = [0]
+    sampling_rate = 2
+    skip_frame = int(round(meta['frame_rate']//sampling_rate))
+    sampled_frames = frames[::skip_frame]
+    shot_list = SBD_ffmpeg(sampled_frames, OPTION='minmax') # last frame num = len(frames) - 1
+    if shot_list == []: shot_list = [0]
+    shot_num = [x * skip_frame for x in shot_list]
+    shot_num = sorted(list(set(shot_num)))
 
     # Sampling (group_count) frames between shot intervals.
     new_frames = []
-    for i in range(len(shot_list) - 1):
+    for i in range(len(shot_num) - 1):
         temp = frames[i:i + 1]
         count = len(temp)
         divide_interval = round((count - 2) / (group_count - 1))
@@ -130,7 +139,7 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
                 if len(temp[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
                     new_frames.append(tp)
                     temp_cnt -= 1
-    temp = frames[shot_list[-1]:len(frames)]
+    temp = frames[shot_num[-1]:len(frames)]
     count = len(temp)
     divide_interval = round((count - 2) / (group_count - 1))
     if divide_interval < 1:
@@ -203,7 +212,7 @@ if __name__ == '__main__':
     video = '/nfs_shared/MLVD/VCDB/videos/8084216caff6082b4e71ae4bbfe556f28a68485f.flv'
     decode_rate = 2
     decode_size = 256
-    group_count = 4
+    group_count = 32
     cnn_model = MobileNet_AVG().cuda()
     cnn_model = nn.DataParallel(cnn_model)
     aggr_model = Segment_Maxpooling()
