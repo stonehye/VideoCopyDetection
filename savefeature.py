@@ -6,13 +6,13 @@ import pickle
 import sys
 
 
-dst = '/nfs_shared/hkseok/'
-basename = 'vcdb_core-2-mobilenet_avg-4-segment_maxpooling'
+dst = '/nfs_shared_/hkseok/'
+basename = 'vcdb_core-0-mobilenet_avg-5-segment_maxpooling'
 # {dataset}-{decode_rate}-{cnn_extractor}-{group_count}-{aggr_model}
 
 decode_rate = 2
 decode_size = 256
-group_count = 4
+group_count = 5
 cnn_model = MobileNet_AVG().cuda()
 cnn_model = nn.DataParallel(cnn_model)
 aggr_model = Segment_Maxpooling()
@@ -29,9 +29,9 @@ if not os.path.isdir(pth_dir):
 
 """ video segment feature """
 empty_shotlist_count = 0 # Number of videos without shot boundary detection
-video_list = glob.glob('/nfs_shared/hkseok/VCDB/videos/core/*') # reference videos path
+video_list = glob.glob('/nfs_shared_/hkseok/VCDB/videos/core/*') # reference videos path
 for video in video_list:
-    segment_fingerprint = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count)
+    segment_fingerprint = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
     videoname = os.path.basename(video)
     dst_path = os.path.join(pth_dir, videoname + '.pth')
     torch.save(segment_fingerprint, dst_path)
