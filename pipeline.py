@@ -72,6 +72,7 @@ def decode_frames_IO(video, meta, size, dst_dir):
     command = ['ffmpeg',
                '-hide_banner', '-loglevel', 'panic',
                '-i', str(video),
+               '-pix_fmt', 'bgr24',
                '-vf', 'scale={}:{}'.format(size,size),
                '-q:v', '0',
                filepath
@@ -93,15 +94,16 @@ def extract_frame_fingerprint(model, loader):
 
 
 def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_model,group_count, SBD_algorithm):
-    # parse video metadata
+    # 1. parse video metadata
     meta = parse_metadata(video)
 
+    # 2. decode all frames
     dst_dir = '/nfs_shared_/hkseok/temp' # extracted frame path
     if not os.path.isdir(dst_dir):
         os.makedirs(dst_dir)
     meta['frame_count'] = decode_frames_IO(video, meta, decode_size, dst_dir)
 
-    # shot boundary detect
+    # 3. shot boundary detect
     skip_frame = int(round(meta['frame_rate'] // 2)) # 2fps
     sampled_frames = []
     for idx in range(0, meta['frame_count'], skip_frame):
@@ -118,14 +120,10 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
         shot_ends = [x * skip_frame for x in shot_ends]
     del sampled_frames
 
-    # Sampling (group_count) frames between shot intervals.
+    # 4. Sampling (group_count) frames between shot intervals.
     new_frames = []
     for start, end in zip(shot_starts, shot_ends):
-        window = []
-        for idx in range(start, end+1):
-            frame = cv2.imread(os.path.join(dst_dir, str(idx + 1) + '.jpg'))
-            window.append(frame)
-
+        window = list(range(start, end+1))
         count = len(window)
         divide_interval = (count - 2) / (group_count - 1)
         if divide_interval < 1:
@@ -142,27 +140,30 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
                 if len(window[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
                     new_frames.append(tp)
                     temp_cnt -= 1
-        del window
+    narray_frames = []
+    for idx in new_frames:
+        frame = cv2.imread(os.path.join(dst_dir, str(idx + 1) + '.jpg'))
+        narray_frames.append(frame)
 
     # convert from PIL to narray
     frames = []
-    for frame in new_frames:
+    for frame in narray_frames:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         PIL_image = Image.fromarray(frame.astype('uint8'), 'RGB')
         frames.append(PIL_image)
-    del new_frames
+    del narray_frames
 
-    # extract frame fingerprint
+    # 5. extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
     frame_fingerprints = extract_frame_fingerprint(cnn_model, cnn_loader)
 
-    # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
+    # 6. grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
     k = group_count - frame_fingerprints.shape[0] % group_count
     if k != group_count:
         frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1))])
     frame_fingerprints = frame_fingerprints.reshape(-1, group_count, frame_fingerprints.shape[-1])
 
-    # extract segment_fingerprint
+    # 7. extract segment_fingerprint
     frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
     segment_fingerprints = aggr_model(frame_fingerprints)
 
@@ -208,7 +209,7 @@ def load_segment_fingerprint(base_path):
 
 
 if __name__ == '__main__':
-    video = '/nfs_shared/MLVD/VCDB/videos/e901a631b00f4ad0c9d161d686fac1339e1e3535.flv'
+    video = '/nfs_shared/MLVD/VCDB/videos/0cad474aedea70d42f8d8f2a6f9a21e3c40fa40b.flv'
     decode_size = 256
     group_count = 5
     cnn_model = MobileNet_AVG().cuda()
