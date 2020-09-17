@@ -51,13 +51,12 @@ def parse_metadata(path):
             meta['file_name'] = track.file_name + '.' + track.file_extension
             # meta['file_extension'] = track.file_extension
             # meta['format'] = track.format
-            # meta['duration'] = float(track.duration)
+            meta['duration'] = float(track.duration) # msec
             # meta['frame_count'] = int(track.frame_count)
             try:
                 meta['frame_rate'] = float(track.frame_rate)
             except:
-                myvideo = VideoFileClip(path)
-                meta['frame_rate'] = myvideo.fps
+                meta['frame_rate'] = 25
         elif track.track_type == 'Video':
             meta['width'] = int(track.width)
             meta['height'] = int(track.height)
@@ -71,13 +70,16 @@ def decode_frames_IO(video, meta, size, dst_dir):
     filepath = os.path.join(dst_dir, '%d.jpg')
     command = ['ffmpeg',
                '-hide_banner', '-loglevel', 'panic',
+               '-nostdin',
+               '-vsync', '2',
                '-i', str(video),
-               '-pix_fmt', 'bgr24',
+               '-pix_fmt', 'yuvj444p',
                '-vf', 'scale={}:{}'.format(size,size),
-               '-q:v', '0',
                filepath
                ]
-    subprocess.call(command)
+    # subprocess.call(command)
+    command_string = ' '.join(command)
+    os.system(command_string)
     return len(os.listdir(dst_dir))
 
 
@@ -99,8 +101,9 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
 
     # 2. decode all frames
     dst_dir = '/nfs_shared_/hkseok/temp' # extracted frame path
-    if not os.path.isdir(dst_dir):
-        os.makedirs(dst_dir)
+    if os.path.isdir(dst_dir):
+        shutil.rmtree(dst_dir)
+    os.makedirs(dst_dir)
     meta['frame_count'] = decode_frames_IO(video, meta, decode_size, dst_dir)
 
     # 3. shot boundary detect
