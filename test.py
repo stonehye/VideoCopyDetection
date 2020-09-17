@@ -7,7 +7,7 @@ import os
 
 decode_rate = 2
 decode_size = 256
-group_count = 4
+group_count = 5
 cnn_model = MobileNet_AVG().cuda()
 cnn_model = nn.DataParallel(cnn_model)
 aggr_model = Segment_Maxpooling()
@@ -17,9 +17,9 @@ transform = trn.Compose([
     trn.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-db_features = np.load('/nfs_shared/hkseok/vcdb_core-2-mobilenet_avg-4-segment_maxpooling_feature.npy')
-db_index = np.load('/nfs_shared/hkseok/vcdb_core-2-mobilenet_avg-4-segment_maxpooling_index.npy')
-db_paths = np.load('/nfs_shared/hkseok/vcdb_core-2-mobilenet_avg-4-segment_maxpooling_paths.npy')
+db_features = np.load('/nfs_shared_/hkseok/vcdb_core-0-mobilenet_avg-5-segment_maxpooling_feature.npy')
+db_index = np.load('/nfs_shared_/hkseok/vcdb_core-0-mobilenet_avg-5-segment_maxpooling_index.npy')
+db_paths = np.load('/nfs_shared_/hkseok/vcdb_core-0-mobilenet_avg-5-segment_maxpooling_paths.npy')
 
 table=dict(); count = 0
 for video_idx, ran in enumerate(db_index):
@@ -28,8 +28,8 @@ for video_idx, ran in enumerate(db_index):
         count+=1
 mapping = np.vectorize(lambda x, table: table[x])
 
-query_path = '/nfs_shared/MLVD/VCDB/videos/8084216caff6082b4e71ae4bbfe556f28a68485f.flv'
-query_video_features = extract_segment_fingerprint(query_path, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count)
+query_path = '/nfs_shared/MLVD/VCDB/videos/5b46e9007b0add1d73a11d2f4414efe35b017acb.flv'
+query_video_features, shots = extract_segment_fingerprint(query_path, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
 query_video_features = query_video_features.numpy()
 
 # search top k features per each query frames
