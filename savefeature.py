@@ -3,14 +3,13 @@ from torchvision import transforms as trn
 import glob
 import os
 import pickle
-import sys
+import time
 
 
 dst = '/nfs_shared_/hkseok/'
 basename = 'vcdb_core-0-mobilenet_avg-5-segment_maxpooling'
 # {dataset}-{decode_rate}-{cnn_extractor}-{group_count}-{aggr_model}
 
-decode_rate = 2
 decode_size = 256
 group_count = 5
 cnn_model = MobileNet_AVG().cuda()
@@ -28,14 +27,21 @@ if not os.path.isdir(pth_dir):
 
 
 """ video segment feature """
+start = time.time()
+video_list = glob.glob('/nfs_shared_/hkseok/VCDB/videos/core/*')
 empty_shotlist_count = 0 # Number of videos without shot boundary detection
-video_list = glob.glob('/nfs_shared_/hkseok/VCDB/videos/core/*') # reference videos path
-for video in video_list:
-    segment_fingerprint = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
+feature_intervals = {}
+for idx, video in enumerate(video_list):
     videoname = os.path.basename(video)
+    print(videoname, idx)
+    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
     dst_path = os.path.join(pth_dir, videoname + '.pth')
     torch.save(segment_fingerprint, dst_path)
+    feature_intervals[videoname] = shots
 print("Num of videos without boundary detection: {}".format(empty_shotlist_count))
+end = time.time() - start
+print("{} video segment feature extraction times: {}sec".format(len(video_list), end))
+print("Average feature extraction time: {}sec".format(end/len(video_list)))
 
 
 """ feature DB """
@@ -44,3 +50,9 @@ np.save(os.path.join(dst, basename + '_feature.npy'), db_feature)
 np.save(os.path.join(dst, basename + '_length.npy'), db_length)
 np.save(os.path.join(dst, basename + '_index.npy'), db_index)
 np.save(os.path.join(dst, basename + '_paths.npy'), db_paths)
+
+dst_path = os.path.join(dst, basename + '_intervals.pkl')
+with open(dst_path, "wb") as fw:
+    pickle.dump(feature_intervals, fw)
+
+print(feature_intervals)

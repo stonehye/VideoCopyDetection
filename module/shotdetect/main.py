@@ -5,7 +5,6 @@ import cv2
 import glob
 import math
 import numpy as np
-import sys
 import os
 import csv
 import json
@@ -184,20 +183,20 @@ def SBD(videopath, OPTION='minmax'):
 def SBD_ffmpeg(frame_list, OPTION='minmax'):
 	frame_diffs = []
 	frames = []
-	new_framelist = []
 
 	# convert from PIL image to OpenCV
-	for pil_frame in frame_list:
-		numpy_frame = np.array(pil_frame)
-		cv_frame = cv2.cvtColor(numpy_frame, cv2.COLOR_RGB2BGR)
-		new_framelist.append(cv_frame)
+	# new_framelist = []
+	# for pil_frame in frame_list:
+	# 	numpy_frame = np.array(pil_frame)
+	# 	cv_frame = cv2.cvtColor(numpy_frame, cv2.COLOR_RGB2BGR)
+	# 	new_framelist.append(cv_frame)
 
 	"""
 	1. Calculate the difference between adjacent frames
 	"""
 	curr_frame = None
 	prev_frame = None
-	for idx, frame in enumerate(new_framelist):
+	for idx, frame in enumerate(frame_list):
 		luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
 		curr_frame = luv
 		if curr_frame is not None and prev_frame is not None:
@@ -209,6 +208,7 @@ def SBD_ffmpeg(frame_list, OPTION='minmax'):
 			diff_sum_mean = 0
 			# frame_diffs.append(diff_sum_mean)
 		prev_frame = curr_frame
+
 	if NORM_OPTION:
 		frame_diffs = MINMAX_norm(frame_diffs)
 
@@ -238,7 +238,7 @@ def SBD_ffmpeg(frame_list, OPTION='minmax'):
 	3. Return results
 	"""
 	if OPTION:
-		return start_id_spot
+		return start_id_spot, end_id_spot
 	else:
 		return None
 
