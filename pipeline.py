@@ -51,12 +51,12 @@ def parse_metadata(path):
             meta['file_name'] = track.file_name + '.' + track.file_extension
             # meta['file_extension'] = track.file_extension
             # meta['format'] = track.format
-            meta['duration'] = float(track.duration) # msec
+            # meta['duration'] = float(track.duration) # msec
             # meta['frame_count'] = int(track.frame_count)
             try:
                 meta['frame_rate'] = float(track.frame_rate)
             except:
-                meta['frame_rate'] = 25
+                meta['frame_rate'] = 25.0
         elif track.track_type == 'Video':
             meta['width'] = int(track.width)
             meta['height'] = int(track.height)
@@ -96,17 +96,17 @@ def extract_frame_fingerprint(model, loader):
 
 
 def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_model,group_count, SBD_algorithm):
-    # 1. parse video metadata
+    # 0. parse video metadata
     meta = parse_metadata(video)
 
-    # 2. decode all frames
+    # 1. decode all frames
     dst_dir = '/nfs_shared_/hkseok/temp' # extracted frame path
     if os.path.isdir(dst_dir):
         shutil.rmtree(dst_dir)
     os.makedirs(dst_dir)
     meta['frame_count'] = decode_frames_IO(video, meta, decode_size, dst_dir)
 
-    # 3. shot boundary detect
+    # 2. shot boundary detect
     skip_frame = int(round(meta['frame_rate'] // 2)) # 2fps
     sampled_frames = []
     for idx in range(0, meta['frame_count'], skip_frame):
@@ -123,7 +123,7 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
         shot_ends = [x * skip_frame for x in shot_ends]
     del sampled_frames
 
-    # 4. Sampling (group_count) frames between shot intervals.
+    # 3. Sampling (group_count) frames between shot intervals.
     new_frames = []
     for start, end in zip(shot_starts, shot_ends):
         window = list(range(start, end+1))
@@ -156,17 +156,17 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
         frames.append(PIL_image)
     del narray_frames
 
-    # 5. extract frame fingerprint
+    # 4. extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
     frame_fingerprints = extract_frame_fingerprint(cnn_model, cnn_loader)
 
-    # 6. grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
+    # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
     k = group_count - frame_fingerprints.shape[0] % group_count
     if k != group_count:
         frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1))])
     frame_fingerprints = frame_fingerprints.reshape(-1, group_count, frame_fingerprints.shape[-1])
 
-    # 7. extract segment_fingerprint
+    # 5. extract segment_fingerprint
     frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
     segment_fingerprints = aggr_model(frame_fingerprints)
 
