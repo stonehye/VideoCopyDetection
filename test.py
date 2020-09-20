@@ -29,7 +29,7 @@ for video_idx, ran in enumerate(db_index):
 mapping = np.vectorize(lambda x, table: table[x])
 
 query_path = '/nfs_shared/MLVD/VCDB/videos/5b46e9007b0add1d73a11d2f4414efe35b017acb.flv'
-query_video_features, shots = extract_segment_fingerprint(query_path, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
+query_video_features, shots = extract_segment_fingerprint(query_path, decode_size, transform, cnn_model, aggr_model, group_count, 'minmax')
 query_video_features = query_video_features.numpy()
 
 # search top k features per each query frames

@@ -61,7 +61,6 @@ class TN(object):
                     candidate.append((v_idx, q, r, score, count))
 
         candidate = sorted(candidate, key=lambda x: x[-2] / x[-1])
-        print(candidate)
         candidate_video = set()
         nms_candidate = []
 

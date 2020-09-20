@@ -7,11 +7,11 @@ import time
 
 
 dst = '/nfs_shared_/hkseok/'
-basename = 'vcdb_core-0-mobilenet_avg-5-segment_maxpooling'
+basename = 'vcdb_core-0-mobilenet_avg-32-segment_maxpooling'
 # {dataset}-{decode_rate}-{cnn_extractor}-{group_count}-{aggr_model}
 
 decode_size = 256
-group_count = 5
+group_count = 32
 cnn_model = MobileNet_AVG().cuda()
 cnn_model = nn.DataParallel(cnn_model)
 aggr_model = Segment_Maxpooling()
@@ -34,7 +34,7 @@ feature_intervals = {}
 for idx, video in enumerate(video_list):
     videoname = os.path.basename(video)
     print(videoname, idx)
-    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
+    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'minmax')
     dst_path = os.path.join(pth_dir, videoname + '.pth')
     torch.save(segment_fingerprint, dst_path)
     feature_intervals[videoname] = shots
