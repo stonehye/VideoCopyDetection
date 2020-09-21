@@ -134,7 +134,7 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
             remainder = group_count - len(window)
             new_frames += [window[-1]] * remainder
         else:
-            divide_interval = round(divide_interval)
+            divide_interval = int(divide_interval)
             new_frames.append(window[0])
             temp_cnt = group_count - 1
             for idx, tp in enumerate(window[1:]):
@@ -143,10 +143,12 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
                 if len(window[idx:]) < divide_interval or (idx + 1) % divide_interval == 0:
                     new_frames.append(tp)
                     temp_cnt -= 1
+
     narray_frames = []
     for idx in new_frames:
         frame = cv2.imread(os.path.join(dst_dir, str(idx + 1) + '.jpg'))
-        narray_frames.append(frame)
+        if frame is not None:
+            narray_frames.append(frame)
 
     # convert from PIL to narray
     frames = []
@@ -155,6 +157,8 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
         PIL_image = Image.fromarray(frame.astype('uint8'), 'RGB')
         frames.append(PIL_image)
     del narray_frames
+
+    print(len(new_frames)/group_count) # TODO
 
     # 4. extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
@@ -212,9 +216,9 @@ def load_segment_fingerprint(base_path):
 
 
 if __name__ == '__main__':
-    video = '/nfs_shared/MLVD/VCDB/videos/0cad474aedea70d42f8d8f2a6f9a21e3c40fa40b.flv'
+    video = '/nfs_shared/MLVD/VCDB/videos/5df28e18b3d8fbdc0f4cd07ef5aefcdc1b4f8d42.flv'
     decode_size = 256
-    group_count = 5
+    group_count = 32
     cnn_model = MobileNet_AVG().cuda()
     cnn_model = nn.DataParallel(cnn_model)
     aggr_model = Segment_Maxpooling()
