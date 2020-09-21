@@ -12,7 +12,8 @@ RUN pip install --upgrade pip
 RUN pip install setuptools
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes #prohibit-password/' /etc/ssh/sshd_config
 
-#WORKDIR /workspace
+WORKDIR /workspace
+ADD . .
 #ENV PYTHONPATH $PYTHONPATH:/workspace
 
 #RUN pip install -r requirements.txt
