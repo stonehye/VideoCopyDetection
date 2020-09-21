@@ -34,7 +34,7 @@ feature_intervals = {}
 for idx, video in enumerate(video_list):
     videoname = os.path.basename(video)
     print(videoname, idx)
-    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'minmax')
+    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
     dst_path = os.path.join(pth_dir, videoname + '.pth')
     torch.save(segment_fingerprint, dst_path)
     feature_intervals[videoname] = shots
@@ -46,12 +46,12 @@ print("Average feature extraction time: {}sec".format(end/len(video_list)))
 
 """ feature DB """
 db_feature, db_length, db_index, db_paths = load_segment_fingerprint(pth_dir)
-np.save(os.path.join(dst, basename + '_feature.npy'), db_feature)
-np.save(os.path.join(dst, basename + '_length.npy'), db_length)
-np.save(os.path.join(dst, basename + '_index.npy'), db_index)
-np.save(os.path.join(dst, basename + '_paths.npy'), db_paths)
+np.save(os.path.join(dst, basename, basename + '_feature.npy'), db_feature)
+np.save(os.path.join(dst, basename, basename + '_length.npy'), db_length)
+np.save(os.path.join(dst, basename, basename + '_index.npy'), db_index)
+np.save(os.path.join(dst, basename, basename + '_paths.npy'), db_paths)
 
-dst_path = os.path.join(dst, basename + '_intervals.pkl')
+dst_path = os.path.join(dst, basename, basename + '_intervals.pkl')
 with open(dst_path, "wb") as fw:
     pickle.dump(feature_intervals, fw)
 
