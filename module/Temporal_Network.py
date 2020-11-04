@@ -4,6 +4,7 @@ import sys
 sys.setrecursionlimit(10000)
 
 
+
 class TN(object):
     def __init__(self, D, I, TEMP_WND=3, MIN_MATCH=3):
 
@@ -58,7 +59,7 @@ class TN(object):
                     _, next_time, next_rank, _, _ = self.paths[next_time, next_rank]
 
                 if count >= self.MIN_MATCH:
-                    candidate.append((v_idx, q, r, score, count))
+                    candidate.append((v_idx, q,r, score, count))
 
         candidate = sorted(candidate, key=lambda x: x[-2] / x[-1])
         candidate_video = set()
@@ -77,42 +78,6 @@ class TN(object):
                 nms_candidate.append(c)
 
         return nms_candidate
-
-        # # for time, tlist in enumerate(self.dist.shape[0]):
-        # #     for rank, s in enumerate(tlist):
-        # #         if self.score[time, rank] > self.SCORE_THR and self.dy_table[time, rank][0] == -1:
-        # #             _, _, max_q, max_r, cnt, path_score = self.get_maximum_path(time, rank)
-        # #
-        # #             # half-closed form [ )
-        # #             if cnt >= self.MIN_MATCH:
-        # #                 detect = {'query': Period(time, max_q + 1),
-        # #                           'ref': Period(self.idx[time, rank], max_r + 1),
-        # #                           'match': cnt,
-        # #                           'score': path_score}
-        # #                 candidate.append(detect)
-        #
-        # # candidate.sort(key=lambda x: x['score'], reverse=True)
-        # # [print(c) for c in candidate]
-        # # 1. overlap -> NMS
-        # '''
-        # nms = [True for i in range(len(candidate))]
-        # for i in range(0, len(candidate)):
-        #     key = candidate[i]
-        #     for j in range(i + 1, len(candidate)):
-        #         if nms[j] and key['query'].is_overlap(candidate[j]['query']) and key['ref'].is_overlap(
-        #                 candidate[j]['ref']):
-        #             nms[j] = False
-        # sink = [candidate[i] for i in range(0, len(candidate)) if nms[i]]
-        # '''
-        # # 2. overlap -> overlay
-        #
-        # # 3. return maximum score
-        # sink = [] if not len(candidate) else [max(candidate, key=lambda x: x['score'])]
-        #
-        # # 4. return all candidate
-        # # sink = sorted(candidate, key=lambda x: x['score'])
-        #
-        # return sink
 
 
 if __name__ == '__main__':

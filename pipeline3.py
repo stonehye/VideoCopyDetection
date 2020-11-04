@@ -169,21 +169,23 @@ def extract_segment_fingerprint(video, decode_size, transform, cnn_model,aggr_mo
     # 4. extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
     frame_fingerprints = extract_frame_fingerprint(cnn_model, cnn_loader)
+    frame_fingerprints = frame_fingerprints.reshape(-1,frame_fingerprints.shape[1],frame_fingerprints.shape[2]*frame_fingerprints.shape[2],1)
+    print(frame_fingerprints.size())
 
-    # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
-    k = group_count - frame_fingerprints.shape[0] % group_count
-    if k != group_count:
-        frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1))])
-    frame_fingerprints = frame_fingerprints.reshape(-1, group_count, frame_fingerprints.shape[2])
-
-    # 5. extract segment_fingerprint
-    frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
-    segment_fingerprints = aggr_model(frame_fingerprints)
-
-    del frame_fingerprints
-    shutil.rmtree(dst_dir)
-
-    return segment_fingerprints, shots
+    # # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
+    # k = group_count - frame_fingerprints.shape[0] % group_count
+    # if k != group_count:
+    #     frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1))])
+    # frame_fingerprints = frame_fingerprints.reshape(-1, group_count, frame_fingerprints.shape[2])
+    #
+    # # 5. extract segment_fingerprint
+    # frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
+    # segment_fingerprints = aggr_model(frame_fingerprints)
+    #
+    # del frame_fingerprints
+    # shutil.rmtree(dst_dir)
+    #
+    # return segment_fingerprints, shots
 
 
 def load(path):
@@ -235,4 +237,4 @@ if __name__ == '__main__':
         trn.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    segment_fingerprint, shots = extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'local')
+    extract_segment_fingerprint(video, decode_size, transform, cnn_model, aggr_model, group_count, 'local')

@@ -231,8 +231,11 @@ def SBD_ffmpeg(frame_list, OPTION='minmax'):
 		frame_diffs_numpy = np.array(frame_diffs); average = np.average(frame_diffs_numpy)
 		new_frame, start_id_spot, end_id_spot = FRAME.optimize_frame(frame_return, frames, average)
 	elif OPTION == 'minmax':
-		frame_return, start_id_spot, end_id_spot = FRAME.minmax_findFrame(frames, windowsize=10)
-		new_frame, start_id_spot, end_id_spot = FRAME.minmax_optimFrame(frame_return, frames, min=10, max=33)
+		frame_return, start_id_spot, end_id_spot = FRAME.minmax_findFrame(frames, windowsize=5)
+		new_frame, start_id_spot, end_id_spot = FRAME.minmax_optimFrame(frame_return, frames, min=4, max=5)
+
+		# diff_list = [start_id_spot[idx+1] - start_id_spot[idx] for idx, i in enumerate(start_id_spot[1:])]
+		# print(f'{min(diff_list)} / {max(diff_list)}')
 
 	"""
 	3. Return results
