@@ -6,7 +6,6 @@ import tqdm
 import faiss
 from collections import defaultdict
 import pickle as pk
-from pprint import pprint
 
 
 def scan_vcdb_annotation(root):
@@ -22,19 +21,9 @@ def scan_vcdb_annotation(root):
         f = open(os.path.join(root, g), 'r')
         annotations += [[os.path.splitext(g)[0], *parse(l)] for l in f.readlines()]
 
-    # frame_annotations = defaultdict(list)
-    # for ann in annotations:
-    #     g, a, b, sa, ea, sb, eb = ann
-    #     cnt = min(ea - sa, eb - sb)
-    #     af = np.linspace(sa, ea, cnt, endpoint=False, dtype=np.int).reshape(-1, 1)
-    #     bf = np.linspace(sb, eb, cnt, endpoint=False, dtype=np.int).reshape(-1, 1)
-    #     frame_annotations[a].append([b, np.concatenate([af, bf], axis=1)])
-    #     if a != b:
-    #         frame_annotations[b].append([a, np.concatenate([bf, af], axis=1)])
-    # return annotations, frame_annotations
     return annotations
 
-\
+
 def load(path):
     feat = torch.load(path)
     return feat
@@ -59,40 +48,23 @@ def load_features(paths):
 if __name__ == '__main__':
     np.set_printoptions(threshold=3, edgeitems=3)
     vcdb_videos = np.load('/nfs_shared/MLVD/VCDB/meta/vcdb_videos_core.npy')
-    # segment_annotation, feature_annotation = scan_vcdb_annotation ('/MLVD/VCDB/annotation')
     segment_annotation = scan_vcdb_annotation('/nfs_shared/MLVD/VCDB/annotation')
     video2id = {v: n for n, v in enumerate(vcdb_videos)}
-    feature_base = '/nfs_shared/MLVD/VCDB/vcdb_core-5sec-5frame-mobilenet-avg-max/ep0/'
-    # feature_base= '/nfs_shared/ms/hkseok_tmp/minmax/vcdb_core_minmax_545-0-mobilenet_avg-10-segment_maxpooling'
-    # feature_base = '/nfs_shared/ms/hkseok_tmp/local/vcdb_core-0-mobilenet_avg-32-segment_maxpooling'
-    # feature_base = '/nfs_shared_/hkseok/BOW/vcdb_core_900-1fps-mobilenet-5sec'
-    # feature_base = '/nfs_shared/MLVD/VCDB/vcdb_core-1sec-1frame-mobilenet-avg/ep0/'
-    # feature_base = '/nfs_shared_/hkseok/BOW/multiple-maxpooling/vcdb_core-1fps-MobileNet_local-5sec'
-    # feature_base = '/nfs_shared_/hkseok/vcdb_core-0.2-res50_avg-1-segment_maxpooling'
-    # feature_base = '/nfs_shared_/hkseok/vcdb_core-1-mobilenet_avg-5-segment_maxpooling'  # global feature
-    # feature_base = '/nfs_shared_/hkseok/SIFT'
+    feature_base = '/nfs_shared_/hkseok/vcdb_core-1-mobilenet_avg-5-segment_maxpooling' # global feature
+    feature_base2 = '/nfs_shared_/hkseok/BOW/multiple/vcdb_core-1fps-MobileNet_local-5sec-sum' # local feature
 
-    name='name'
+    name='multiple-vcdb_core-1fps-MobileNet-5sec-weightedsum3'
 
     feature_path = np.char.add(np.char.add(feature_base+'/', vcdb_videos), '.pth')
     feature, length, location = load_features(feature_path)
-    # print(feature_annotation)
 
-    table = dict()
-    count = 0
-    for video_idx, ran in enumerate(location):
-        for features_idx in range(ran[1] - ran[0]):
-            table[count] = (video_idx, features_idx)
-            count += 1
-
-    mapping = np.vectorize(lambda x, table: table[x])
-    print(table)
+    feature_path2 = np.char.add(np.char.add(feature_base2 + '/', vcdb_videos), '.pth')
+    feature2, length2, location2 = load_features(feature_path2)
 
     db_interval = dict()
     for n, v in enumerate(vcdb_videos):
         vid = video2id[v]
-        db_interval[v] = [[i * 5, (i + 1) * 5] for i in range(0, length[vid])] # 0.2fps
-        # db_interval[v] = [[i, (i + 1)] for i in range(0, length[vid])] # 1fps
+        db_interval[v] = [[i * 5, (i + 1) * 5] for i in range(0, length[vid])]
 
     feature_annotation=defaultdict(list)
     for ann in segment_annotation:
@@ -110,33 +82,49 @@ if __name__ == '__main__':
             bf = np.linspace(bi[0], bi[-1], cnt, endpoint=True, dtype=np.int).reshape(-1, 1)
             feature_annotation[b].append([a, np.concatenate([bf, af], axis=1)])
 
-
-
     index = faiss.IndexFlatIP(feature.shape[1])
-    faiss.normalize_L2(feature)
     index.add(feature)
+
+    index2 = faiss.IndexFlatIP(feature2.shape[1])
+    faiss.normalize_L2(feature2)
+    index2.add(feature2)
 
     result = dict()
     for qv_idx, qv in enumerate(vcdb_videos):
         ann = feature_annotation[qv]
         qv_feature = feature[location[qv_idx][0]:location[qv_idx][1]]
-        print(qv_idx, qv, qv_feature.shape, length[qv_idx])
+        qv_feature2 = feature2[location[qv_idx][0]:location[qv_idx][1]]
+
+        print(qv_idx, qv, length[qv_idx])
+
         D, I = index.search(qv_feature, feature.shape[0])
+        D2, I2 = index2.search(qv_feature2, feature2.shape[0])
+
+        new_D = []
+        new_I = []
+        for i in range(length[qv_idx]):
+            global_feature = np.array((D[i], I[i])).T
+            local_feature = np.array((D2[i], I2[i])).T
+            global_feature = global_feature[global_feature[:,1].argsort()]
+            local_feature = local_feature[local_feature[:, 1].argsort()]
+            summed_feature = np.array((0.5*global_feature[:,0]+ 0.5*local_feature[:, 0], global_feature[:,1])).T
+            summed_feature = summed_feature[summed_feature[:, 0].argsort()][::-1]
+            new_D.append(summed_feature[:,0])
+            new_I.append(summed_feature[:,1])
+        new_I = np.array(new_I)
+        new_D = np.array(new_D)
+
         result[qv] = defaultdict(list)
         for a in ann:
             loc = location[video2id[a[0]]]
             query_time = a[1][:, 0]
             ref_idx = a[1][:, 1] + loc[0]
-            rank = [np.where(np.abs(I[t, :] - ref_idx[n]) <= 2)[0][0] for n, t in enumerate(query_time)]
+            rank = [np.where(np.abs(new_I[t, :] - ref_idx[n]) <= 2)[0][0] for n, t in enumerate(query_time)]
             ret = np.vstack([a[1][:, 0], a[1][:, 1], rank]).T
             result[qv][a[0]].append(ret)
 
-    # print([ for k,v in result['00274a923e13506819bd273c694d10cfa07ce1ec.flv'] for vv in v])
-
-
     pk.dump(result, open(f'{name}.pkl', 'wb'))
     result = pk.load(open(f'{name}.pkl', 'rb'))
-    # print(result)
     result_per_feature = dict()
     for qv, ret in result.items():
         result_per_feature[qv] = defaultdict(list)

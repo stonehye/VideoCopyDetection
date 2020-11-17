@@ -12,6 +12,7 @@ from multiprocessing import Pool
 import os
 
 import glob
+import argparse
 
 
 class ListDataset(Dataset):
@@ -111,21 +112,21 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
     # extract frame fingerprint
     cnn_loader = DataLoader(ListDataset(frames, transform=transform), batch_size=64, shuffle=False, num_workers=4)
     frame_fingerprints = extract_frame_fingerprint(cnn_model, cnn_loader)
-    print(frame_fingerprints.shape)
+    print("extract frame fingerprint: ", frame_fingerprints.shape)
 
     if group_count != 1:
-        ## multiple keyframe
-        # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
         k = group_count - frame_fingerprints.shape[0] % group_count
         if k != group_count:
             frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1, 1))])
+        frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
         frame_fingerprints = frame_fingerprints.reshape(-1, group_count * frame_fingerprints.shape[1], frame_fingerprints.shape[-1])
-        print(frame_fingerprints.shape)
+        frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
+        print("groupping: ", frame_fingerprints.shape)
 
     if aggr_model:
         ## multiple keyframe - segment local maxpooling
         frame_fingerprints = aggr_model(frame_fingerprints)
-        print(frame_fingerprints.shape)
+        print("aggregating segment feature: ", frame_fingerprints.shape)
 
     local_features = []
     local_features_set = torch.split(frame_fingerprints, 1)
@@ -134,11 +135,42 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
         temp = [t.squeeze(-1) for t in temp]
         local_features.append(temp)
 
+    print(f"# of Segments: {len(local_features)}")
+    print(f"# of localfeatures per segment: {len(local_features[0])}")
+    print(f"shape of localfeature: {local_features[0][0].shape}")
+    print("-" * 53)
+
+    # if group_count != 1:
+    #     # grouping fingerprints for each segment => If frame_fingerprints cannot be divided by group_count, the last is copied.
+    #     k = group_count - frame_fingerprints.shape[0] % group_count
+    #     if k != group_count:
+    #         frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1, 1))])
+    #     print("groupping: ", frame_fingerprints.shape)
+    #
+    # groupping_fingerprint = frame_fingerprints
+    # groupping_fingerprint = torch.split(groupping_fingerprint, 5, dim=0)
+    # variance_fingerprint = [f.var(dim=0).unsqueeze(0) for f in groupping_fingerprint]
+    #
+    # if not aggr_model:
+    #     frame_fingerprints = frame_fingerprints.reshape(-1, group_count * frame_fingerprints.shape[1], frame_fingerprints.shape[-1])
+    #     print("Concatenate fingerprint for each segment: ", frame_fingerprints.shape)
+    # else:
+    #     frame_fingerprints = aggr_model(frame_fingerprints)
+    #     print("aggregating segment feature: ", frame_fingerprints.shape)
+    #
+    # local_features_set = torch.split(frame_fingerprints, 1)
+    # concatenated_fingerprint = [torch.cat([local, var], 1).squeeze(1) for local, var in zip(local_features_set, variance_fingerprint)]
+    #
+    # local_features = []
+    # for set in concatenated_fingerprint:
+    #     temp = torch.split(set, 1, dim=2)
+    #     temp = [t.squeeze(-1) for t in temp]
+    #     local_features.append(temp)
+
     # print(local_features[0][0].shape)
     # exit()
 
     return local_features
-
 
 
 def load(path):
@@ -175,31 +207,64 @@ def load_segment_fingerprint(base_path):
 
 
 if __name__ == '__main__':
-    video = '/nfs_shared/MLVD/VCDB/videos/00274a923e13506819bd273c694d10cfa07ce1ec.flv'
-    decode_rate = 0.2
-    decode_size = 400
-    group_count = 1
-    cnn_model = MobileNet_local_middle().cuda()
-    cnn_model = nn.DataParallel(cnn_model)
-    # aggr_model = Local_Maxpooling()
+    parser = argparse.ArgumentParser(description='A. extract local features')
+
+    parser.add_argument('--decode_rate', required=False,  default=1,help="decode rate")
+    parser.add_argument('--decode_size', required=False, default=256, help="decode size")
+    parser.add_argument('--group_count', required=False,  default=5, help="group count")
+    parser.add_argument('--cnn_model', required=False, default='mobilenet', help="cnn model (mobilenet, resnet50)")
+    parser.add_argument('--trained', required=False, default=False, help="Whether to use the model trained with triplet loss")
+    parser.add_argument('--aggr', required=False, default=False,
+                        help="Whether to aggregate frame features")
+    parser.add_argument('--feature_path', required=True, default='/nfs_shared_/hkseok/features_local/multiple/vcdb_core-1fps-MobileNet_triplet_sum-5sec',
+                        help="feature path")
+    parser.add_argument('--video_dataset', required=False,
+                        default='/nfs_shared_/hkseok/VCDB/videos/core/',
+                        help="video_dataset path")
+
+    args = parser.parse_args()
+    print(args)
+
+    decode_rate = args.decode_rate
+    decode_size = args.decode_size
+    group_count = args.group_count
+    cnn_model = None
     aggr_model = None
+    pth_dir = args.feature_path
+    if not os.path.isdir(pth_dir):
+        os.makedirs(pth_dir)
+
+    if args.cnn_model == 'mobilenet':
+        cnn_model = MobileNet_local().cuda()
+        if args.trained:
+            cnn_model.load_state_dict(torch.load('/nfs_shared_/hkseok/mobilenet_avg.pth')['model_state_dict'])
+    elif args.cnn_model == 'resnet50':
+        cnn_model = Resnet50_local().cuda()
+        if args.trained:
+            cnn_model.load_state_dict(torch.load('/nfs_shared/MLVD/models/resnet_avg_0_10000_norollback_adam_lr_1e-6_wd_0/saved_model/epoch_3_ckpt.pth')['model_state_dict'])
+    cnn_model = nn.DataParallel(cnn_model)
+
+    if args.aggr:
+        aggr_model = Local_Maxpooling(group_count)
+
     transform = trn.Compose([
-        trn.Resize((400, 400)),
+        trn.Resize((224, 224)),
         trn.ToTensor(),
         trn.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
-    # local_feature = extract_segment_fingerprint(video,decode_rate,decode_size,transform,cnn_model, group_count)
-    #
+    # video = '/nfs_shared/MLVD/VCDB/videos/00274a923e13506819bd273c694d10cfa07ce1ec.flv'
+    # local_feature = extract_segment_fingerprint(video,decode_rate,decode_size,transform,cnn_model, group_count, aggr_model)
     # torch.save(local_feature, "testfeatures/test.pth")
 
-    dst = '/nfs_shared_/hkseok/features_local/single'
-    basename = 'vcdb_core_train-1fps-mobilenet_local_middle-5sec-400size'
-    pth_dir = os.path.join(dst, basename)  # pth file path
-    if not os.path.isdir(pth_dir):
-        os.makedirs(pth_dir)
-    video_list = glob.glob('/nfs_shared_/hkseok/VCDB/train/*')
-    for idx, video in enumerate(video_list):
+    # dst = '/nfs_shared_/hkseok/features_local/multiple-variance'
+    # basename = 'vcdb_core-1fps-MobileNet_concat-5sec'
+    # pth_dir = os.path.join(dst, basename)  # pth file path
+    # if not os.path.isdir(pth_dir):
+    #     os.makedirs(pth_dir)
+
+    # video_list = glob.glob('/nfs_shared_/hkseok/VCDB/videos/core/*')
+    for idx, video in enumerate(glob.glob(os.path.join(args.video_dataset, '*'))):
         videoname = os.path.basename(video)
         print(videoname, idx)
         local_feature = extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_model, group_count, aggr_model)

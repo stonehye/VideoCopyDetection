@@ -5,11 +5,7 @@ import numpy as np
 import faiss
 import torch
 import os
-
-import numpy as np
-import sys
 from typing import Union
-
 import pickle
 import glob
 
@@ -114,11 +110,13 @@ class TN(object):
                                               self.frame_index[time, rank]]
                 else:
                     # priority : count, path length, path score
-                    # prev_time, prev_rank = max(prev_linkable_nodes, key=lambda x: (self.paths[x[0], x[1], 1], # count
-                    #                                                                self.frame_index[time, rank] - self.paths[x[0], x[1], 3], # path length
-                    #                                                                self.paths[x[0], x[1], 0] # path score
-                    #                                                                ))
-                    prev_time, prev_rank = max(prev_linkable_nodes, key=lambda x: self.paths[x[0], x[1], 3]/self.paths[x[0], x[1], 0])
+                    prev_time, prev_rank = max(prev_linkable_nodes, key=lambda x: (
+                        self.paths[x[0], x[1], 1],
+                        self.frame_index[time, rank] -
+                        self.paths[x[0], x[1], 3],
+                        self.paths[x[0], x[1], 0],
+                    ))
+
                     prev_path = self.paths[prev_time, prev_rank]
                     self.paths[time, rank] = [prev_path[0] + self.dist[time, rank],
                                               prev_path[1] + 1,
@@ -132,8 +130,8 @@ class TN(object):
                 score, count, q_start, r_start = self.paths[time, rank]
                 if count >= self.MIN_LEN:
                     video_idx, frame_idx = self.video_index[time, rank], self.frame_index[time, rank]
-                    q = Period(q_start, time) # 수정함
-                    r = Period(r_start, frame_idx) # 수정함
+                    q = Period(q_start, time + 1)
+                    r = Period(r_start, frame_idx + 1)
                     path = (video_idx, q, r, score, count)
                     # remove include path
                     flag = True
@@ -211,13 +209,11 @@ def load_features(videos, feature_root):
     bar.close()
     features = [f.get() for f in features]
     length = [f.shape[0] for f in features]
-    # print(length)
 
     start = np.cumsum([0] + length)
     index = np.concatenate((start[:-1].reshape(-1, 1), start[1:].reshape(-1, 1)), axis=1)
     # index = np.transpose(np.vstack([start[:-1], start[1:]]))
     videos = {v: n for n, v in enumerate(videos)}
-
     return np.concatenate(features), videos, index
 
 
@@ -229,6 +225,7 @@ def scan_vcdb_annotation(root):
 
     groups = os.listdir(root)
     annotations = defaultdict(list)
+
     for g in groups:
         f = open(os.path.join(root, g), 'r')
         group = os.path.splitext(g)[0]
@@ -237,6 +234,7 @@ def scan_vcdb_annotation(root):
             annotations[a] += [[group, a, b, sa, ea, sb, eb]]
             if a != b:
                 annotations[b] += [[group, b, a, sb, eb, sa, ea]]
+
     return annotations
 
 
@@ -280,56 +278,72 @@ def idx2time(query, videos_namelist, candidates, db_intervals):
 
     return new_candidates
 
-def idx2time2(query, videos_namelist, candidates):
-    new_candidates = []
-    for can in candidates:
-        reference = videos_namelist[can[0]]
 
-        query_startidx = can[1].start
-        query_endidx = can[1].end
-        ref_startidx = can[2].start
-        ref_endidx = can[2].end
-
-        query_start = can[1].start * 5
-        query_end = can[1].end * 5
-        ref_start =can[2].start * 5
-        ref_end = can[2].end * 5
-
-        new_candidates += [[can[0], Period(round(query_start), round(query_end)), Period(round(ref_start), round(ref_end)), can[3], can[4]]]
-
-    return new_candidates
-
-
-if __name__ == '__main__':
-    vcdb = np.load('/nfs_shared/MLVD/VCDB/meta/vcdb.pkl', allow_pickle=True)
-    vcdb_core_video = np.load('/nfs_shared/MLVD/VCDB/meta/vcdb_videos.npy')[:528]
-    annotation = scan_vcdb_annotation('/nfs_shared/MLVD/VCDB/annotation')
-    feature_path= '/nfs_shared_/hkseok/BOW/vcdb_core-1fps-mobilenet-5sec'
-    # feature_path = '/nfs_shared_/hkseok/vcdb_core-1-mobilenet_avg-5-segment_maxpooling'
+def test(topk, tn_param):
+    vcdb_core_video = np.load('/nfs_shared/MLVD/VCDB/meta/vcdb_videos_core.npy')
+    annotation = scan_vcdb_annotation('/nfs_shared_/hkseok/VCDB/videos/annotation')
+    feature_path = '/nfs_shared_/hkseok/BOW/multiple/vcdb_core-1fps-MobileNet_local-5sec-sum'
 
     feature, videos, loc = load_features(vcdb_core_video, feature_path)
-    table = {i: (n, i - l[0]) for n, l in enumerate(loc) for i in range(l[0], l[1])}
 
+    table = dict()
+    count = 0
+    for video_idx, ran in enumerate(loc):
+        for features_idx in range(ran[1] - ran[0]):
+            table[count] = (video_idx, features_idx)
+            count += 1
     mapping = np.vectorize(lambda x, table: table[x])
+
     index = faiss.IndexFlatIP(feature.shape[1])
     index = faiss.index_cpu_to_all_gpus(index)
+    faiss.normalize_L2(feature)
     index.add(feature)
-
-    topk = 100
-    tn_param = [5,5,-1]
+    # search_dst = '/nfs_shared_/hkseok/search/local/multiple/vcdb_core-1fps-MobileNet_local-5sec-sum'
 
     a, b, c, d = 0, 0, 0, 0
-    total_avg = []
-    total_recall = []
-    total_precision = []
     for n, (query, gt) in enumerate(annotation.items(), start=1):
-        print("{}: ".format(n), end='')
+        # D = np.load(os.path.join(search_dst, query + '_D.npy'))[:, :topk]
+        # I = np.load(os.path.join(search_dst, query + '_I.npy'))[:, :topk]
+
         q_id = videos[query]
         start, end = loc[q_id]
         q_feat = feature[start:end]
         D, I = index.search(q_feat, topk)
 
-        print(D)
-        print(I)
+        idx = mapping(I, table)
+        vidx, fidx = idx[0], idx[1]  # video idx, frame idx
 
-        exit()
+        tn = TN(D, vidx, fidx, *tn_param)
+        candidate = tn.fit()
+        candidate = [[x[0], Period(x[1].start * 5, x[1].end * 5), Period(x[2].start * 5, x[2].end * 5), x[3], x[4]] for
+                     x in candidate]
+        ground = [(videos[g[2]], Period(g[3], g[4]), Period(g[5], g[6])) for g in gt]
+
+        aa, cc = match(candidate, ground)
+        bb, dd = len(candidate), len(ground)
+
+        a += aa  # correct candidate
+        b += bb  # all candidate
+        c += cc  # correct ground
+        d += dd  # all ground
+        pp = aa / (bb + 1e-12)  # precision
+        rr = cc / (dd + 1e-12)  # recall
+        ff = 2 * pp * rr / (pp + rr + 1e-12)  # f1-score
+
+        p = a / (b + 1e-12)
+        r = c / (d + 1e-12)
+        f = 2 * p * r / (p + r + 1e-12)
+
+        # print(n, '======')
+        # print('detect', len(candidate), sorted(candidate, key=lambda x: (x[0], -x[4], x[3])))
+        # print('gt', len(ground), sorted(ground, key=lambda x: x[0]))
+        print(f'{n}: {f:.4f} {p:.4f} {r:.4f} ({ff:.4f} {pp:.4f} {rr:.4f}) {a:>5d}({aa:>3d}) {b:>5d}({bb:>3d}) {c:>5d}({cc:>3d}) {d:>5d}({dd:>3d})')
+
+    p = a / (b + 1e-12)
+    r = c / (d + 1e-12)
+    f = 2 * p * r / (p + r + 1e-12)
+    print(f'{topk} {tn_param[0]} {tn_param[1]} {tn_param[2]} {a:>5d} {b:>5d} {c:>5d} {d:>5d} {p:.4f} {r:.4f} {f:.4f} ')
+
+
+if __name__ == '__main__':
+    test(topk= 200, tn_param=[10, 5, -1])

@@ -12,12 +12,15 @@ class BaseModel(nn.Module):
         return self.__class__.__name__
 
     def summary(self, input_size, batch_size=-1, device="cuda"):
-        try:
-            output = self.__class__.__name__ + "\n"
-            output += self._summary(self, input_size, batch_size, device)
-            return output
-        except:
-            return self.__repr__()
+        # try:
+        #     output = self.__class__.__name__ + "\n"
+        #     output += self._summary(self, input_size, batch_size, device)
+        #     return output
+        # except:
+        #     return self.__repr__()
+        output = self.__class__.__name__ + "\n"
+        output += self._summary(self, input_size, batch_size, device)
+        return output
 
     @staticmethod
     def _summary(model, input_size, batch_size=-1, device="cuda"):
@@ -311,13 +314,15 @@ class Segment_Maxpooling(BaseModel):
 
 
 class Local_Maxpooling(BaseModel):
-    def __init__(self):
+    def __init__(self, group_count):
         super(Local_Maxpooling, self).__init__()
-        self.pool = torch.nn.AdaptiveAvgPool2d((1280,49)) # TODO
+        self.pool = torch.nn.MaxPool1d(group_count)
         self.norm = L2N()
 
     def forward(self, x):
-        x = self.pool(x).squeeze(-1)
+        x = x.permute(1,2,0)
+        x = self.pool(x)
+        x = x.permute(2, 0, 1)
         x = self.norm(x)
         return x
 
@@ -363,34 +368,17 @@ class MobileNet_local(nn.Module):
 class VGGNet16(BaseModel):
     def __init__(self):
         super(VGGNet16, self).__init__()
-        self.base = models.vgg16(pretrained=True)
-        print(nn.Sequential(
-            OrderedDict([*list(self.base.features.named_children())])))
-    def forward(self, x):
-        x = self.base(x)
-        return x
-
-
-class MobileNet_local_middle(BaseModel):
-    def __init__(self):
-        super(MobileNet_local_middle, self).__init__()
-        self.base = nn.Sequential(
-            OrderedDict([*list(models.mobilenet_v2(pretrained=True).features.named_children())[0:-5]])
-        )
-        self.pool = torch.nn.AdaptiveAvgPool2d((1, 1))
+        self.base = nn.Sequential(*list(models.vgg16(pretrained=True).features)[:-6][:-2])  # conv5_1
         self.norm = L2N()
-
     def forward(self, x):
         x = self.base(x)
-        x = self.norm(x)
-        x = x.reshape(-1, x.shape[1], x.shape[2] * x.shape[2]).squeeze(-1)
         return x
 
 
 class Resnet50_local(BaseModel):
     def __init__(self):
         super(Resnet50_local, self).__init__()
-        self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-2])) # middle conv
+        self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-2]))
         self.norm = L2N()
 
     def forward(self, x):
@@ -401,5 +389,5 @@ class Resnet50_local(BaseModel):
 
 
 if __name__ == "__main__":
-    m = MobileNet_local_middle()
-    print(m.summary((3,224,224), device='cpu'))
+    m = Resnet50_local()
+    print(m.summary((3,400,400), device='cpu'))
