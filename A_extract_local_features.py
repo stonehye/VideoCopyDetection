@@ -118,15 +118,17 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
         k = group_count - frame_fingerprints.shape[0] % group_count
         if k != group_count:
             frame_fingerprints = torch.cat([frame_fingerprints, frame_fingerprints[-1:, ].repeat((k, 1, 1))])
-        frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
-        frame_fingerprints = frame_fingerprints.reshape(-1, group_count * frame_fingerprints.shape[1], frame_fingerprints.shape[-1])
-        frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
-        print("grouping: ", frame_fingerprints.shape)
 
-    if aggr_model:
-        ## multiple keyframe - segment local maxpooling
-        frame_fingerprints = aggr_model(frame_fingerprints)
-        print("aggregating segment feature: ", frame_fingerprints.shape)
+        if aggr_model:
+            frame_fingerprints = aggr_model(frame_fingerprints)
+            print("aggregating segment feature: ", frame_fingerprints.shape)
+
+        if not aggr_model:
+            frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
+            frame_fingerprints = frame_fingerprints.reshape(-1, group_count * frame_fingerprints.shape[1],
+                                                            frame_fingerprints.shape[-1])
+            frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
+            print("grouping: ", frame_fingerprints.shape)
 
     local_features = []
     local_features_set = torch.split(frame_fingerprints, 1)
