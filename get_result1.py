@@ -34,7 +34,7 @@ def scan_vcdb_annotation(root):
     # return annotations, frame_annotations
     return annotations
 
-\
+
 def load(path):
     feat = torch.load(path)
     return feat
