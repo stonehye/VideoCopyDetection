@@ -13,7 +13,7 @@ import os
 
 import glob
 import argparse
-
+from module.parser import str2bool
 
 class ListDataset(Dataset):
     def __init__(self, l, transform=None):
@@ -121,7 +121,7 @@ def extract_segment_fingerprint(video, decode_rate, decode_size, transform, cnn_
         frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
         frame_fingerprints = frame_fingerprints.reshape(-1, group_count * frame_fingerprints.shape[1], frame_fingerprints.shape[-1])
         frame_fingerprints = frame_fingerprints.permute(0, 2, 1)
-        print("groupping: ", frame_fingerprints.shape)
+        print("grouping: ", frame_fingerprints.shape)
 
     if aggr_model:
         ## multiple keyframe - segment local maxpooling
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     parser.add_argument('--decode_size', required=False, default=256, help="decode size")
     parser.add_argument('--group_count', required=False,  default=5, help="group count")
     parser.add_argument('--cnn_model', required=False, default='mobilenet', help="cnn model (mobilenet, resnet50)")
-    parser.add_argument('--trained', required=False, default=False, help="Whether to use the model trained with triplet loss")
-    parser.add_argument('--aggr', required=False, default=False,
+    parser.add_argument('--trained', required=False, type=str2bool, default=False, help="Whether to use the model trained with triplet loss")
+    parser.add_argument('--aggr', required=False, type=str2bool, default=False,
                         help="Whether to aggregate frame features")
     parser.add_argument('--feature_path', required=True, default='/nfs_shared_/hkseok/features_local/multiple/vcdb_core-1fps-MobileNet_triplet_sum-5sec',
                         help="feature path")
@@ -236,7 +236,7 @@ if __name__ == '__main__':
 
     if args.cnn_model == 'mobilenet':
         cnn_model = MobileNet_local().cuda()
-        if args.trained:
+        if args.trained == 'True':
             cnn_model.load_state_dict(torch.load('/nfs_shared_/hkseok/mobilenet_avg.pth')['model_state_dict'])
     elif args.cnn_model == 'resnet50':
         cnn_model = Resnet50_local().cuda()
@@ -244,7 +244,7 @@ if __name__ == '__main__':
             cnn_model.load_state_dict(torch.load('/nfs_shared/MLVD/models/resnet_avg_0_10000_norollback_adam_lr_1e-6_wd_0/saved_model/epoch_3_ckpt.pth')['model_state_dict'])
     cnn_model = nn.DataParallel(cnn_model)
 
-    if args.aggr:
+    if args.aggr == 'True':
         aggr_model = Local_Maxpooling(group_count)
 
     transform = trn.Compose([
