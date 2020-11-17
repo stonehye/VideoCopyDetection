@@ -244,7 +244,7 @@ if __name__ == '__main__':
             cnn_model.load_state_dict(torch.load('/nfs_shared/MLVD/models/resnet_avg_0_10000_norollback_adam_lr_1e-6_wd_0/saved_model/epoch_3_ckpt.pth')['model_state_dict'])
     cnn_model = nn.DataParallel(cnn_model)
 
-    if args.aggr == 'True':
+    if args.aggr:
         aggr_model = Local_Maxpooling(group_count)
 
     transform = trn.Compose([
