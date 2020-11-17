@@ -227,9 +227,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    decode_rate = args.decode_rate
-    decode_size = args.decode_size
-    group_count = args.group_count
+    decode_rate = float(args.decode_rate)
+    decode_size = int(args.decode_size)
+    group_count = int(args.group_count)
     cnn_model = None
     aggr_model = None
     pth_dir = args.feature_path

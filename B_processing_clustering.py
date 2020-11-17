@@ -40,9 +40,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    n_clust = args.n_clust
+    n_clust = int(args.n_clust)
     feature_DB = args.feature_path
-    limit = args.n_features
+    limit = int(args.n_features)
     total_local_features = load_features(feature_DB, limit)
     x = torch.cat(total_local_features).numpy()
     print(x.shape)

@@ -19,7 +19,7 @@ parser.add_argument('--BOW_path', required=True,
 args = parser.parse_args()
 print(args)
 
-N_cluster = args.n_clust
+N_cluster = int(args.n_clust)
 kmeans = pickle.load(open(args.model_path, "rb"))
 feature_list = glob.glob(os.path.join(args.feature_path, '*'))
 scaler = MinMaxScaler()
