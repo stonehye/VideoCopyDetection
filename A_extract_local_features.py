@@ -238,7 +238,7 @@ if __name__ == '__main__':
 
     if args.cnn_model == 'mobilenet':
         cnn_model = MobileNet_local().cuda()
-        if args.trained == 'True':
+        if args.trained:
             cnn_model.load_state_dict(torch.load('/nfs_shared_/hkseok/mobilenet_avg.pth')['model_state_dict'])
     elif args.cnn_model == 'resnet50':
         cnn_model = Resnet50_local().cuda()
