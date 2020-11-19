@@ -114,7 +114,7 @@ class TN(object):
                         self.paths[x[0], x[1], 1],
                         self.frame_index[time, rank] -
                         self.paths[x[0], x[1], 3],
-                        self.paths[x[0], x[1], 0],
+                        # self.paths[x[0], x[1], 0],
                     ))
 
                     prev_path = self.paths[prev_time, prev_rank]
@@ -282,7 +282,7 @@ def idx2time(query, videos_namelist, candidates, db_intervals):
 def test(topk, tn_param):
     vcdb_core_video = np.load('/nfs_shared/MLVD/VCDB/meta/vcdb_videos_core.npy')
     annotation = scan_vcdb_annotation('/nfs_shared_/hkseok/VCDB/videos/annotation')
-    feature_path = '/nfs_shared_/hkseok/BOW/multiple/vcdb_core-1fps-MobileNet_local-5sec-sum'
+    feature_path = '/nfs_shared_/hkseok/BOW/multiple/vcdb_core-1fps-MobileNet_triplet_sum-5sec'
 
     feature, videos, loc = load_features(vcdb_core_video, feature_path)
 
@@ -337,7 +337,7 @@ def test(topk, tn_param):
         # print(n, '======')
         # print('detect', len(candidate), sorted(candidate, key=lambda x: (x[0], -x[4], x[3])))
         # print('gt', len(ground), sorted(ground, key=lambda x: x[0]))
-        print(f'{n}: {f:.4f} {p:.4f} {r:.4f} ({ff:.4f} {pp:.4f} {rr:.4f}) {a:>5d}({aa:>3d}) {b:>5d}({bb:>3d}) {c:>5d}({cc:>3d}) {d:>5d}({dd:>3d})')
+        # print(f'{n}: {f:.4f} {p:.4f} {r:.4f} ({ff:.4f} {pp:.4f} {rr:.4f}) {a:>5d}({aa:>3d}) {b:>5d}({bb:>3d}) {c:>5d}({cc:>3d}) {d:>5d}({dd:>3d})')
 
     p = a / (b + 1e-12)
     r = c / (d + 1e-12)
@@ -346,4 +346,8 @@ def test(topk, tn_param):
 
 
 if __name__ == '__main__':
-    test(topk= 200, tn_param=[10, 5, -1])
+    for topk in [200,250,300]:
+        for temp_wnd in [50, 100, 150,200]:
+            for min_length in [3]:
+                for thr in [0.3,0.35]:
+                    test(topk=topk, tn_param=[temp_wnd, min_length, thr])
