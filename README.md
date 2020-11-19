@@ -41,3 +41,9 @@ python A_extract_local_features.py  --decode_rate 1 \
 
 이하 동일
 ```
+
+## TODO
+- [ ] docker yml 파일수정
+- [ ] Dockerfile pip install 오류 수정
+- [ ] weighted-sum 추가
+- [ ] savefeature.py 수정
