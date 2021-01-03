@@ -12,12 +12,15 @@ class BaseModel(nn.Module):
         return self.__class__.__name__
 
     def summary(self, input_size, batch_size=-1, device="cuda"):
-        try:
-            output = self.__class__.__name__ + "\n"
-            output += self._summary(self, input_size, batch_size, device)
-            return output
-        except:
-            return self.__repr__()
+        # try:
+        #     output = self.__class__.__name__ + "\n"
+        #     output += self._summary(self, input_size, batch_size, device)
+        #     return output
+        # except:
+        #     return self.__repr__()
+        output = self.__class__.__name__ + "\n"
+        output += self._summary(self, input_size, batch_size, device)
+        return output
 
     @staticmethod
     def _summary(model, input_size, batch_size=-1, device="cuda"):
@@ -384,37 +387,7 @@ class Resnet50_local(BaseModel):
         x = x.reshape(-1, x.shape[1], x.shape[2] * x.shape[2]).squeeze(-1)
         return x
 
-class Resnet50_intermediate(BaseModel):
-    def __init__(self):
-        super(Resnet50_intermediate, self).__init__()
-        # self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-3]
-        #                                       + [('layer4', nn.Sequential(list(models.resnet50(pretrained=True).named_children())[7][1][0]))])) # conv5_1
-
-        # self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-4]
-        #                                       + [('layer3', nn.Sequential(
-        #     list(models.resnet50(pretrained=True).named_children())[6][1][:2]))])) # conv4_2
-
-        # self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-4]
-        #                                       + [('layer3', nn.Sequential(
-        #     list(models.resnet50(pretrained=True).named_children())[6][1][:4]))]))  # conv4_4
-
-        # self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-3])) # conv4_6
-
-        # self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-4])) # conv3_4
-
-        self.base = nn.Sequential(OrderedDict(list(models.resnet50(pretrained=True).named_children())[:-4]
-                                              + [('layer3', nn.Sequential(
-            list(models.resnet50(pretrained=True).named_children())[6][1][:5]))]))  # conv4_5
-
-        self.norm = L2N()
-
-    def forward(self, x):
-        x = self.base(x)
-        x = self.norm(x)
-        x = x.reshape(-1, x.shape[1], x.shape[2] * x.shape[2]).squeeze(-1)
-        return x
-
 
 if __name__ == "__main__":
-    m = Resnet50_intermediate()
-    print(m.summary((3,224,224), device='cpu'))
+    m = Resnet50_local()
+    print(m.summary((3,400,400), device='cpu'))
