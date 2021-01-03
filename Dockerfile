@@ -16,7 +16,7 @@ WORKDIR /workspace
 ADD . .
 #ENV PYTHONPATH $PYTHONPATH:/workspace
 
-#RUN pip install -r requirements.txt
+#RUN pip install -r requirements.txt # TODO: 오류 고치기
 
 RUN chmod -R a+w /workspace
 

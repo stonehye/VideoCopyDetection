@@ -38,4 +38,4 @@ volumes:
     driver_opts:
       type: "nfs"
       o: "addr=mldisk2.sogang.ac.kr,nolock,soft,rw"
-      device: ":/volume3/nfs_shared_
+      device: ":/volume3/nfs_shared_"
