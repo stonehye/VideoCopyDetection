@@ -214,11 +214,11 @@ if __name__ == '__main__':
     parser.add_argument('--decode_rate', required=False,  default=1,help="decode rate")
     parser.add_argument('--decode_size', required=False, default=256, help="decode size")
     parser.add_argument('--group_count', required=False,  default=5, help="group count")
-    parser.add_argument('--cnn_model', required=False, default='mobilenet', help="cnn model (mobilenet, resnet50)")
-    parser.add_argument('--trained', required=False, type=str2bool, default=False, help="Whether to use the model trained with triplet loss")
+    parser.add_argument('--cnn_model', required=True, default='resnet50', help="cnn model (mobilenet, resnet50, intermediate)")
+    parser.add_argument('--trained', required=True, type=str2bool, default=False, help="Whether to use the model trained with triplet loss")
     parser.add_argument('--aggr', required=False, type=str2bool, default=False,
                         help="Whether to aggregate frame features")
-    parser.add_argument('--feature_path', required=True, default='/nfs_shared_/hkseok/features_local/multiple/vcdb_core-1fps-MobileNet_triplet_sum-5sec',
+    parser.add_argument('--feature_path', required=True, default='/nfs_shared_/hkseok/features_local/multiple/resnet50_conv4_5',
                         help="feature path")
     parser.add_argument('--video_dataset', required=False,
                         default='/nfs_shared_/hkseok/VCDB/videos/core/',
@@ -239,10 +239,17 @@ if __name__ == '__main__':
     if args.cnn_model == 'mobilenet':
         cnn_model = MobileNet_local().cuda()
         if args.trained:
+            print("load model...")
             cnn_model.load_state_dict(torch.load('/nfs_shared_/hkseok/mobilenet_avg.pth')['model_state_dict'])
     elif args.cnn_model == 'resnet50':
         cnn_model = Resnet50_local().cuda()
         if args.trained:
+            print("load model...")
+            cnn_model.load_state_dict(torch.load('/nfs_shared/MLVD/models/resnet_avg_0_10000_norollback_adam_lr_1e-6_wd_0/saved_model/epoch_3_ckpt.pth')['model_state_dict'])
+    elif args.cnn_model == 'intermediate':
+        cnn_model = Resnet50_intermediate().cuda()
+        if args.trained:
+            print("load model...")
             cnn_model.load_state_dict(torch.load('/nfs_shared/MLVD/models/resnet_avg_0_10000_norollback_adam_lr_1e-6_wd_0/saved_model/epoch_3_ckpt.pth')['model_state_dict'])
     cnn_model = nn.DataParallel(cnn_model)
 
